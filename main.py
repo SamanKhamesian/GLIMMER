@@ -3,27 +3,19 @@ import random
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import Sequential
-from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Conv1D, LSTM, Dense, Flatten, Dropout
 
-from config import CustomLSTMConfig as Config
-from config import PATIENT_ID_LIST, Threshold
-from models.custom_lstm.preprocess import create_train_test_data, create_input_features
-from postprocess import (calculate_scores, calculate_error_metrics, plot_prediction_results, plot_train_val_history,
-                         calculate_correlation_coefficient, calculate_total_error_metrics_and_scores, clarke_error_grid)
-
-folder_path = str(Config.FOLDER_PATH + 'test/')
+from config import TransformerConfig, GlimmerLSTMConfig
+from models.cnn_lstm_model import build_model as build_cnn_lstm
+from models.transformer_model import build_model as build_transformer
+from postprocess import (calculate_scores, calculate_error_metrics, calculate_total_error_metrics_and_scores, calculate_correlation_coefficient,
+                         clarke_error_grid, plot_train_val_history, plot_prediction_results)
+from preprocess import create_input_features, create_train_test_data
 
 
-def prepare_clarke_error_output():
+def prepare_clarke_error_output(size, patient_path, patient_id, y_test_seq, y_pred):
     zones = {'A': [], 'B': [], 'C': [], 'D': [], 'E': []}
-    for i in range(Config.N_PREDICTION - 1, -1, -1):
-        zones_temp = clarke_error_grid(save_to=patient_path,
-                                       patient_id=patient_id,
-                                       y_true=y_test_seq[:, i],
-                                       y_pred=y_pred[:, i],
-                                       show=False)
+    for i in range(size - 1, -1, -1):
+        zones_temp = clarke_error_grid(save_to=patient_path, patient_id=patient_id, y_true=y_test_seq[:, i], y_pred=y_pred[:, i], show=False)
         zones_total_temp = zones_temp['A'] + zones_temp['B'] + zones_temp['C'] + zones_temp['D'] + zones_temp['E']
 
         zones['A'].append(zones_temp['A'] / zones_total_temp * 100)
@@ -34,25 +26,25 @@ def prepare_clarke_error_output():
 
     return zones
 
-
-def create_loss_function(w_normal, w_hypo, w_hyper):
+def create_loss_function(w_normal, w_hypo, w_hyper, threshold):
     def custom_loss(y_true, y_pred):
-        mae = K.abs(y_pred - y_true)
+        mae = tf.keras.backend.abs(y_pred - y_true)
 
-        normal_abs_error = mae * tf.cast(tf.logical_and(y_true >= Threshold.HYPOGLYCEMIA,
-                                                        y_true <= Threshold.HYPERGLYCEMIA), K.floatx()) * w_normal
-        penalty_lower = K.cast(y_true < Threshold.HYPOGLYCEMIA, K.floatx()) * mae * w_hypo
-        penalty_upper = K.cast(y_true > Threshold.HYPERGLYCEMIA, K.floatx()) * mae * w_hyper
+        normal_error = mae * tf.cast(tf.logical_and(y_true >= threshold.HYPOGLYCEMIA, y_true <= threshold.HYPERGLYCEMIA), tf.keras.backend.floatx()) * w_normal
+        hypo_error = tf.cast(y_true < threshold.HYPOGLYCEMIA, tf.keras.backend.floatx()) * mae * w_hypo
+        hyper_error = tf.cast(y_true > threshold.HYPERGLYCEMIA, tf.keras.backend.floatx()) * mae * w_hyper
 
-        return K.mean(normal_abs_error + penalty_lower + penalty_upper)
-
+        return tf.keras.backend.mean(normal_error + hypo_error + hyper_error)
     return custom_loss
 
 
-if __name__ == '__main__':
+def train_and_evaluate(Config, build_model_fn, folder_path):
+    from config import PATIENT_ID_LIST, Threshold
+
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
+    # Metrics containers
     list_clarke_error_zones = {'A': [], 'B': [], 'C': [], 'D': [], 'E': []}
     list_y_pred, list_y_true = [], []
     list_rmse_total, list_mse_total, list_mae_total, list_mape_total = [], [], [], []
@@ -75,71 +67,64 @@ if __name__ == '__main__':
         if not os.path.exists(patient_path):
             os.makedirs(patient_path)
 
-        history, y_pred = None, None
-
+        # Data
         X_train, y_train, X_test, y_test = create_input_features(patient_id=patient_id)
-        X_train_seq, y_train_seq, X_val_seq, y_val_seq, X_test_seq, y_test_seq = create_train_test_data(X_train,
-                                                                                                        y_train,
-                                                                                                        X_test,
-                                                                                                        y_test)
+        X_train_seq, y_train_seq, X_val_seq, y_val_seq, X_test_seq, y_test_seq = create_train_test_data(X_train, y_train, X_test, y_test)
 
+        y_pred = None
+        history = None
+
+        # Training loop with REPEAT
         for i in range(Config.REPEAT):
+            seed = int(i + 100)
+            random.seed(seed)
+            np.random.seed(seed)
+            tf.random.set_seed(seed)
 
-            random.seed(int(i + 100))
-            np.random.seed(int(i + 100))
-            tf.random.set_seed(int(i + 100))
+            model = build_model_fn(
+                input_shape=(X_train_seq.shape[1], X_train_seq.shape[2]),
+                output_dim=Config.N_PREDICTION,
+                config=Config
+            )
 
-            model = Sequential([
-                Conv1D(filters=32, kernel_size=4, input_shape=(X_train_seq.shape[1], X_train_seq.shape[2])),
-                Dropout(0.1), Conv1D(filters=16, kernel_size=4), Dropout(0.1), Conv1D(filters=8, kernel_size=4),
-                Dropout(0.4), LSTM(units=8, return_sequences=True), Dropout(0.1), Flatten(),
-                Dense(Config.N_PREDICTION, activation=Config.ACTIVATION), Dense(units=Config.N_PREDICTION)])
-
-            weights = Config.WEIGHTS
-            loss_func = create_loss_function(*weights)
+            loss_func = create_loss_function(*Config.WEIGHTS, threshold=Threshold)
             model.compile(optimizer=Config.OPTIMIZER, loss=loss_func)
 
-            model.summary()
-
-            history = model.fit(X_train_seq,
-                                y_train_seq,
-                                epochs=Config.EPOCHS,
-                                batch_size=Config.BATCH_SIZE,
-                                validation_data=(X_val_seq, y_val_seq))
+            history = model.fit(
+                X_train_seq, y_train_seq,
+                epochs=Config.EPOCHS,
+                batch_size=Config.BATCH_SIZE,
+                validation_data=(X_val_seq, y_val_seq),
+                verbose=1
+            )
 
             y_pred_temp = model.predict(X_test_seq)
-
-            if y_pred is None:
-                y_pred = y_pred_temp
-            else:
-                y_pred += y_pred_temp
+            y_pred = y_pred_temp if y_pred is None else y_pred + y_pred_temp
 
         y_pred = y_pred / Config.REPEAT
-
         list_y_pred.append(y_pred[:, 0])
         list_y_true.append(y_test_seq[:, 0])
 
-        zones = prepare_clarke_error_output()
-
+        zones = prepare_clarke_error_output(Config.N_PREDICTION, patient_path, patient_id, y_test_seq, y_pred)
         list_clarke_error_zones['A'].append(np.mean(zones['A']))
         list_clarke_error_zones['B'].append(np.mean(zones['B']))
         list_clarke_error_zones['C'].append(np.mean(zones['C']))
         list_clarke_error_zones['D'].append(np.mean(zones['D']))
         list_clarke_error_zones['E'].append(np.mean(zones['E']))
 
-        (rmse_total, mse_total, mae_total, mape_total), (rmse_normal, mse_normal, mae_normal, mape_normal), (
-            rmse_dysglycemic, mse_dysglycemic, mae_dysglycemic, mape_dysglycemic), (
-            rmse_hyperglycemia, mse_hyperglycemia, mae_hyperglycemia, mape_hyperglycemia), (
-            rmse_hypoglycemia, mse_hypoglycemia, mae_hypoglycemia,
-            mape_hypoglycemia) = calculate_error_metrics(save_to=patient_path,
-                                                         patient_id=patient_id,
-                                                         y_true=y_test_seq,
-                                                         y_pred=y_pred,
-                                                         zones=zones)
+        (rmse_total, mse_total, mae_total, mape_total), (rmse_normal, mse_normal, mae_normal, mape_normal), (rmse_dysglycemic, mse_dysglycemic,
+                                                                                                             mae_dysglycemic, mape_dysglycemic), (
+            rmse_hyperglycemia, mse_hyperglycemia, mae_hyperglycemia, mape_hyperglycemia), (rmse_hypoglycemia, mse_hypoglycemia, mae_hypoglycemia,
+                                                                                            mape_hypoglycemia) = calculate_error_metrics(save_to=patient_path,
+                                                                                                                                         patient_id=patient_id,
+                                                                                                                                         y_true=y_test_seq,
+                                                                                                                                         y_pred=y_pred,
+                                                                                                                                         zones=zones)
 
-        (f1_score_hyper, f1_score_hypo, f1_score_normal, f1_score_dysglycemic, precision_hyper, precision_hypo,
-         precision_normal, precision_dysglycemic, recall_hyper, recall_hypo, recall_normal,
-         recall_dysglycemic) = calculate_scores(save_to=patient_path, y_true=y_test_seq, y_pred=y_pred)
+        (f1_score_hyper, f1_score_hypo, f1_score_normal, f1_score_dysglycemic, precision_hyper, precision_hypo, precision_normal,
+         precision_dysglycemic, recall_hyper, recall_hypo, recall_normal, recall_dysglycemic) = calculate_scores(save_to=patient_path,
+                                                                                                                 y_true=y_test_seq,
+                                                                                                                 y_pred=y_pred)
 
         list_precision_hyper.append(precision_hyper)
         list_precision_hypo.append(precision_hypo)
@@ -241,3 +226,21 @@ if __name__ == '__main__':
                                              list_mape_hypoglycemia=list_mape_hypoglycemia,
                                              list_clarke_error_zones=list_clarke_error_zones,
                                              list_corr=list_corr)
+
+
+def main(model_name):
+    if model_name == "transformer":
+        Config = TransformerConfig
+        build_model_fn = build_transformer
+        folder_path = './glimmer_transformer_results/'
+    elif model_name == "cnn_lstm":
+        Config = GlimmerLSTMConfig
+        build_model_fn = build_cnn_lstm
+        folder_path = './glimmer_cnn_lstm_results/'
+    else:
+        raise ValueError(f"Unknown model type: {model_name}")
+
+    train_and_evaluate(Config, build_model_fn, folder_path)
+
+if __name__ == '__main__':
+    main('transformer')

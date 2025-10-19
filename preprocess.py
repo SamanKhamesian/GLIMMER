@@ -3,8 +3,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from config import CustomLSTMConfig as Config
 from config import DATASET_NAME, Threshold
+from config import GlimmerLSTMConfig as Config
 
 
 def calculate_moving_average(data, window_size):
@@ -23,10 +23,7 @@ def create_sequences(X, y, time_steps, prediction_horizon):
 
 
 def create_train_test_data(_X_train_val_, _y_train_val_, _X_test_, _y_test_):
-    _X_train_, _X_val_, _y_train_, _y_val_ = train_test_split(_X_train_val_,
-                                                              _y_train_val_,
-                                                              test_size=Config.SPLIT_RATIO,
-                                                              shuffle=False)
+    _X_train_, _X_val_, _y_train_, _y_val_ = train_test_split(_X_train_val_, _y_train_val_, test_size=Config.SPLIT_RATIO, shuffle=False)
 
     scaler = StandardScaler()
     _X_train_ = scaler.fit_transform(_X_train_)
@@ -74,23 +71,16 @@ def create_input_features(patient_id):
 
     choices = [0, 1, 2]
 
-    conditions = [
-        df_train['glucose'] < Threshold.HYPOGLYCEMIA,
-        (df_train['glucose'] >= Threshold.HYPOGLYCEMIA) & (df_train['glucose'] <= Threshold.HYPERGLYCEMIA),
-        df_train['glucose'] > Threshold.HYPERGLYCEMIA
-    ]
+    conditions = [df_train['glucose'] < Threshold.HYPOGLYCEMIA,
+                  (df_train['glucose'] >= Threshold.HYPOGLYCEMIA) & (df_train['glucose'] <= Threshold.HYPERGLYCEMIA),
+                  df_train['glucose'] > Threshold.HYPERGLYCEMIA]
     df_train['glucose_class'] = np.select(conditions, choices)
 
-    conditions = [
-        df_test['glucose'] < Threshold.HYPOGLYCEMIA,
-        (df_test['glucose'] >= Threshold.HYPOGLYCEMIA) & (df_test['glucose'] <= Threshold.HYPERGLYCEMIA),
-        df_test['glucose'] > Threshold.HYPERGLYCEMIA
-    ]
+    conditions = [df_test['glucose'] < Threshold.HYPOGLYCEMIA,
+                  (df_test['glucose'] >= Threshold.HYPOGLYCEMIA) & (df_test['glucose'] <= Threshold.HYPERGLYCEMIA),
+                  df_test['glucose'] > Threshold.HYPERGLYCEMIA]
     df_test['glucose_class'] = np.select(conditions, choices)
 
     relevant_features = relevant_features + ['glucose_class']
 
-    return (df_train[relevant_features].values,
-            df_train['glucose'].values,
-            df_test[relevant_features].values,
-            df_test['glucose'].values)
+    return (df_train[relevant_features].values, df_train['glucose'].values, df_test[relevant_features].values, df_test['glucose'].values)
