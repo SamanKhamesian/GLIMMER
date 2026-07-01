@@ -2,7 +2,7 @@
 
 **Glucose Level Indicator Model with Modified Error Rate**
 
-Managing Type 1 Diabetes (T1D) demands constant vigilance as individuals strive to regulate their blood glucose levels to avert the dangers of dysglycemia (i.e., hyperglycemia and hypoglycemia). Despite the advent of sophisticated technologies such as automated insulin delivery (AID) systems, achieving optimal glycemic control remains a formidable task. AID systems integrate data from wearable devices including continuous subcutaneous insulin infusion (CSII) pumps and continuous glucose monitors (CGMs), offering promise in reducing variability and improving time-in-range.
+Managing Type 1 Diabetes (T1D) demands constant vigilance as individuals strive to regulate their blood glucose levels to avert the dangers of dysglycemia (i.e., hyperglycemia and hypoglycemia). Despite the advent of sophisticated technologies such as automated insulin delivery (AID) systems, achieving optimal glycemic control remains a formidable task. AID systems integrate data from wearable devices, including continuous subcutaneous insulin infusion (CSII) pumps and continuous glucose monitors (CGMs), offering promise in reducing variability and improving time-in-range.
 
 However, these systems often fail to prevent dysglycemia, partly due to limitations in prediction algorithms that lack the precision to anticipate impending glycemic excursions. This gap highlights the need for more advanced blood glucose forecasting methods.
 
@@ -105,12 +105,7 @@ Before running, make sure to manually set the model type in `main.py` (e.g., `"t
 If you use GLIMMER in your work, please cite:
 
 ```bibtex
-@article{khamesian2025type,
-  title={Type 1 diabetes management using glimmer: Glucose level indicator model with modified error rate},
-  author={Khamesian, Saman and Arefeen, Asiful and Grando, Maria Adela and Thompson, Bithika M and Ghasemzadeh, Hassan},
-  journal={arXiv preprint arXiv:2502.14183},
-  year={2025}
-}
+Khamesian, S., Arefeen, A., Grando, M. et al. Glycemic-aware and architecture-agnostic training framework for blood glucose forecasting in type 1 diabetes. BMC Artif. Intell. 2, 13 (2026). https://doi.org/10.1186/s44398-026-00032-x
 ```
 
 ---
