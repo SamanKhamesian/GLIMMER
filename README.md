@@ -101,11 +101,19 @@ Before running, make sure to manually set the model type in `main.py` (e.g., `"t
 ---
 
 ## 📖 Citation
-
-If you use GLIMMER in your work, please cite:
+If you use this work in your research, please cite:
 
 ```bibtex
-Khamesian, S., Arefeen, A., Grando, M. et al. Glycemic-aware and architecture-agnostic training framework for blood glucose forecasting in type 1 diabetes. BMC Artif. Intell. 2, 13 (2026). https://doi.org/10.1186/s44398-026-00032-x
+@article{khamesian2026glycemic,
+  title={Glycemic-aware and architecture-agnostic training framework for blood glucose forecasting in type 1 diabetes},
+  author={Khamesian, Saman and Arefeen, Asiful and Grando, Maria Adela and Thompson, Bithika M and Ghasemzadeh, Hassan},
+  journal={BMC Artificial Intelligence},
+  volume={2},
+  number={1},
+  pages={13},
+  year={2026},
+  publisher={Springer}
+}
 ```
 
 ---
