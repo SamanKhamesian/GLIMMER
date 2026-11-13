@@ -2,7 +2,7 @@
 
 **Glucose Level Indicator Model with Modified Error Rate**
 
-Managing Type 1 Diabetes (T1D) demands constant vigilance as individuals strive to regulate their blood glucose levels to avert the dangers of dysglycemia (i.e., hyperglycemia and hypoglycemia). Despite the advent of sophisticated technologies such as automated insulin delivery (AID) systems, achieving optimal glycemic control remains a formidable task. AID systems integrate data from wearable devices, including continuous subcutaneous insulin infusion (CSII) pumps and continuous glucose monitors (CGMs), offering promise in reducing variability and improving time-in-range.
+Managing Type 1 Diabetes (T1D) demands constant vigilance as individuals strive to regulate their blood glucose levels to avert the dangers of dysglycemia (i.e., hyperglycemia and hypoglycemia). Despite the advent of sophisticated technologies such as automated insulin delivery (AID) systems, achieving optimal glycemic control remains a formidable task. AID systems integrate data from wearable devices including continuous subcutaneous insulin infusion (CSII) pumps and continuous glucose monitors (CGMs), offering promise in reducing variability and improving time-in-range.
 
 However, these systems often fail to prevent dysglycemia, partly due to limitations in prediction algorithms that lack the precision to anticipate impending glycemic excursions. This gap highlights the need for more advanced blood glucose forecasting methods.
 
@@ -101,7 +101,8 @@ Before running, make sure to manually set the model type in `main.py` (e.g., `"t
 ---
 
 ## 📖 Citation
-If you use this work in your research, please cite:
+
+If you use GLIMMER in your work, please cite:
 
 ```bibtex
 @article{khamesian2026glycemic,
@@ -112,8 +113,14 @@ If you use this work in your research, please cite:
   number={1},
   pages={13},
   year={2026},
-  publisher={Springer}
+  publisher={Springer},
+  doi={10.1186/s44398-026-00032-x},
+  url={https://doi.org/10.1186/s44398-026-00032-x}
 }
 ```
 
 ---
+
+## License
+
+Released under the [ASU Non-Commercial Research License](LICENSE).
